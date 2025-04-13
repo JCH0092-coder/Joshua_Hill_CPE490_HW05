@@ -2,155 +2,49 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MNIST Digit Classifier</title>
-  <!-- Include Chart.js to display prediction probabilities -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
   <style>
-    /* Simple CSS for styling */
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; }
-    .container { display: flex; flex-direction: column; gap: 20px; }
-    .upload-section, .result-section, .samples-section { border: 1px solid #ddd; padding: 20px; border-radius: 5px; }
-    .result-section { display: none; }
-    .image-preview { max-width: 300px; margin-top: 10px; border: 1px solid #ddd; }
-    .samples-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-    .sample-digit { cursor: pointer; border: 1px solid #ddd; padding: 5px; text-align: center; }
-    .error { color: red; }
-    button { padding: 10px 15px; background: #4CAF50; color: white; border: none; border-radius: 4px; }
-    button:disabled { background: #ccc; }
+    body { font-family: Arial, sans-serif; }
+    .sample { margin: 10px; }
   </style>
 </head>
 <body>
   <h1>MNIST Digit Classifier</h1>
-  <div class="container">
-    <!-- Image Upload Section -->
-    <div class="upload-section">
-      <h2>Upload a Digit Image</h2>
-      <input type="file" id="image-upload" accept="image/*">
-      <div id="preview-container" style="display: none;">
-        <h3>Preview:</h3>
-        <img id="image-preview" class="image-preview">
-      </div>
-      <div id="error-message" class="error"></div>
-      <button id="predict-button" disabled>Predict</button>
-    </div>
-    <!-- Prediction Result Section -->
-    <div id="result-section" class="result-section">
-      <h2>Prediction</h2>
-      <p>Predicted Digit: <span id="predicted-digit"></span></p>
-      <canvas id="confidence-chart"></canvas>
-    </div>
-    <!-- Sample Images Section -->
-    <div class="samples-section">
-      <h2>Sample Digits</h2>
-      <div class="samples-grid">
-        {% for digit in sample_digits %}
-          <div class="sample-digit" data-image="{{ digit.image }}">
-            <img src="{{ digit.image }}" alt="Digit {{ digit.label }}">
-            <p>{{ digit.label }}</p>
-          </div>
-        {% endfor %}
-      </div>
-    </div>
+  <p>Select an image and click Predict:</p>
+  <input type="file" id="image-upload" accept="image/*">
+  <button id="predict-button">Predict</button>
+  <div id="result"></div>
+  <h2>Sample Digits</h2>
+  <div>
+    <img class="sample" src="{{ url_for('sample_file', filename='0.png') }}" alt="Digit 0">
+    <img class="sample" src="{{ url_for('sample_file', filename='1.png') }}" alt="Digit 1">
+    <img class="sample" src="{{ url_for('sample_file', filename='2.png') }}" alt="Digit 2">
   </div>
-
   <script>
-    document.addEventListener("DOMContentLoaded", function() {
-      const imageUpload = document.getElementById("image-upload");
-      const previewContainer = document.getElementById("preview-container");
-      const imagePreview = document.getElementById("image-preview");
-      const predictButton = document.getElementById("predict-button");
-      const errorMessage = document.getElementById("error-message");
-      const resultSection = document.getElementById("result-section");
-      const predictedDigitEl = document.getElementById("predicted-digit");
-      let chart = null;
-
-      // Display image preview and enable the predict button
-      imageUpload.addEventListener("change", function() {
-        errorMessage.textContent = "";
-        const file = imageUpload.files[0];
-        if (file && file.type.match("image.*")) {
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            imagePreview.src = e.target.result;
-            previewContainer.style.display = "block";
-            predictButton.disabled = false;
-          };
-          reader.readAsDataURL(file);
-        } else {
-          previewContainer.style.display = "none";
-          predictButton.disabled = true;
-          errorMessage.textContent = "Please select a valid image file";
-        }
-      });
-
-      // Send image for prediction and display results
-      predictButton.addEventListener("click", function() {
-        if (!imageUpload.files[0]) {
-          errorMessage.textContent = "No file selected";
-          return;
-        }
-        predictButton.disabled = true;
-        predictButton.textContent = "Predicting...";
-        let formData = new FormData();
-        formData.append("file", imageUpload.files[0]);
-        fetch("/predict", { method: "POST", body: formData })
-          .then(res => res.json())
-          .then(data => {
-            if (data.error) {
-              errorMessage.textContent = data.error;
-              resultSection.style.display = "none";
-            } else {
-              predictedDigitEl.textContent = data.predicted_digit;
-              const ctx = document.getElementById("confidence-chart").getContext("2d");
-              if (chart) chart.destroy();
-              chart = new Chart(ctx, {
-                type: "bar",
-                data: {
-                  labels: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
-                  datasets: [{
-                    label: "Confidence Score",
-                    data: data.confidence_scores,
-                    backgroundColor: Array(10).fill("rgba(54, 162, 235, 0.2)"),
-                    borderColor: Array(10).fill("rgba(54, 162, 235, 1)"),
-                    borderWidth: 1
-                  }]
-                },
-                options: { scales: { y: { beginAtZero: true, max: 1 } } }
-              });
-              // Highlight the predicted digit's bar:
-              chart.data.datasets[0].backgroundColor[data.predicted_digit] = "rgba(255, 99, 132, 0.2)";
-              chart.data.datasets[0].borderColor[data.predicted_digit] = "rgba(255, 99, 132, 1)";
-              chart.update();
-              resultSection.style.display = "block";
-            }
-          })
-          .catch(err => errorMessage.textContent = "Error: " + err)
-          .finally(() => {
-            predictButton.disabled = false;
-            predictButton.textContent = "Predict";
-          });
-      });
-
-      // When a sample image is clicked, simulate the file upload and trigger prediction
-      document.querySelectorAll(".sample-digit").forEach(function(el) {
-        el.addEventListener("click", function() {
-          const imagePath = el.dataset.image;
-          fetch(imagePath)
-            .then(response => response.blob())
-            .then(blob => {
-              const file = new File([blob], "sample.png", { type: blob.type });
-              const dt = new DataTransfer();
-              dt.items.add(file);
-              imageUpload.files = dt.files;
-              imagePreview.src = URL.createObjectURL(file);
-              previewContainer.style.display = "block";
-              predictButton.disabled = false;
-              predictButton.click();
-            })
-            .catch(err => errorMessage.textContent = "Error loading sample image.");
+    const imageUpload = document.getElementById("image-upload");
+    const predictButton = document.getElementById("predict-button");
+    const resultDiv = document.getElementById("result");
+    predictButton.addEventListener("click", async () => {
+      if (!imageUpload.files[0]) {
+        resultDiv.innerHTML = "<p>Please select an image file</p>";
+        return;
+      }
+      let formData = new FormData();
+      formData.append("file", imageUpload.files[0]);
+      try {
+        const response = await fetch("/predict", {
+          method: "POST",
+          body: formData
         });
-      });
+        const data = await response.json();
+        if (data.error) {
+          resultDiv.innerHTML = `<p>Error: ${data.error}</p>`;
+        } else {
+          resultDiv.innerHTML = `<h2>Predicted Digit: ${data.predicted_digit}</h2>`;
+        }
+      } catch(err) {
+        resultDiv.innerHTML = `<p>Error: ${err}</p>`;
+      }
     });
   </script>
 </body>
