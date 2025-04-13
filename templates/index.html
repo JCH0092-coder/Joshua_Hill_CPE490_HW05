@@ -18,34 +18,67 @@
       max-width: 500px;
       margin: 20px auto;
     }
+    #sampleContainer {
+      margin-top: 20px;
+    }
+    #sampleContainer img {
+      width: 50px;
+      height: 50px;
+      margin: 5px;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    #sampleContainer img:hover {
+      border-color: #000;
+    }
   </style>
 </head>
 <body>
   <h1>MNIST Digit Classifier</h1>
   <p>Select an image file (28x28 recommended) and click Predict.</p>
+  
   <input type="file" id="fileInput">
   <button id="predictButton">Predict</button>
   <br>
+  
   <!-- Image preview element -->
   <img id="preview" src="" alt="Image Preview" style="display:none;">
+  
   <h2 id="predictionResult"></h2>
+  
+  <h2>Or select a sample image:</h2>
+  <div id="sampleContainer">
+    <img src="/samples/0.png" class="sample" alt="0">
+    <img src="/samples/1.png" class="sample" alt="1">
+    <img src="/samples/2.png" class="sample" alt="2">
+    <img src="/samples/3.png" class="sample" alt="3">
+    <img src="/samples/4.png" class="sample" alt="4">
+    <img src="/samples/5.png" class="sample" alt="5">
+    <img src="/samples/6.png" class="sample" alt="6">
+    <img src="/samples/7.png" class="sample" alt="7">
+    <img src="/samples/8.png" class="sample" alt="8">
+    <img src="/samples/9.png" class="sample" alt="9">
+  </div>
+  
   <!-- Canvas for Chart.js -->
   <canvas id="confidenceChart" style="display:none;"></canvas>
-
+  
   <!-- Load Chart.js library -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
   <script>
     let chartInstance = null;
-    
+    let selectedFile = null;
+
     const fileInput = document.getElementById("fileInput");
     const predictButton = document.getElementById("predictButton");
     const preview = document.getElementById("preview");
     const predictionResult = document.getElementById("predictionResult");
     const chartCanvas = document.getElementById("confidenceChart");
 
-    // Display preview when a file is selected.
+    // When a file is uploaded via the file input.
     fileInput.addEventListener("change", function(event) {
+      selectedFile = null; // Clear any previously selected sample.
       const file = event.target.files[0];
       if (file) {
         const reader = new FileReader();
@@ -57,11 +90,32 @@
       }
     });
 
-    // When Predict button is clicked, send the file to the backend.
+    // When clicking on a sample image.
+    document.querySelectorAll("#sampleContainer img").forEach(img => {
+      img.addEventListener("click", function() {
+        // Clear the file input.
+        fileInput.value = "";
+        // Show the sample image in the preview.
+        preview.src = img.src;
+        preview.style.display = "block";
+        // Fetch the sample image, convert to a File object.
+        fetch(img.src)
+          .then(response => response.blob())
+          .then(blob => {
+            selectedFile = new File([blob], img.alt + ".png", { type: blob.type });
+          });
+      });
+    });
+
+    // When the Predict button is clicked.
     predictButton.addEventListener("click", function() {
-      const file = fileInput.files[0];
-      if (!file) {
-        alert("Please select a file first!");
+      let file = null;
+      if (fileInput.files.length > 0) {
+        file = fileInput.files[0];
+      } else if (selectedFile !== null) {
+        file = selectedFile;
+      } else {
+        alert("Please select a file or click a sample image first!");
         return;
       }
       
@@ -87,7 +141,7 @@
       });
     });
 
-    // Function to create or update the Chart.js bar chart.
+    // Create or update the Chart.js bar chart.
     function updateChart(confidenceScores) {
       chartCanvas.style.display = "block";
       const ctx = chartCanvas.getContext("2d");
