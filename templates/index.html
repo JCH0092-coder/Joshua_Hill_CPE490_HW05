@@ -7,103 +7,119 @@
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      margin: 0;
-      padding: 0;
+      margin: 20px;
     }
-    .container {
-      max-width: 800px;
-      margin: auto;
-      padding: 20px;
-    }
-    .samples-container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 20px;
-    }
-    .sample {
-      width: 80px;
-      height: 80px;
-      object-fit: cover;
-      cursor: pointer;
+    #preview {
+      margin-top: 10px;
+      max-width: 200px;
       border: 1px solid #ccc;
     }
-    #result {
-      margin-top: 20px;
-      font-size: 1.5em;
+    #confidenceChart {
+      max-width: 500px;
+      margin: 20px auto;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>MNIST Digit Classifier</h1>
-    <p>Select an image from and click Predict:</p>
-    <input type="file" id="image-upload" accept="image/*">
-    <button id="predict-button">Predict</button>
-    <div id="result"></div>
-    <h2>Sample Digits</h2>
-    <div class="samples-container">
-      <img class="sample" src="{{ url_for('sample_file', filename='0.png') }}" alt="Digit 0">
-      <img class="sample" src="{{ url_for('sample_file', filename='1.png') }}" alt="Digit 1">
-      <img class="sample" src="{{ url_for('sample_file', filename='2.png') }}" alt="Digit 2">
-      <img class="sample" src="{{ url_for('sample_file', filename='3.png') }}" alt="Digit 3">
-      <img class="sample" src="{{ url_for('sample_file', filename='4.png') }}" alt="Digit 4">
-      <img class="sample" src="{{ url_for('sample_file', filename='5.png') }}" alt="Digit 5">
-      <img class="sample" src="{{ url_for('sample_file', filename='6.png') }}" alt="Digit 6">
-      <img class="sample" src="{{ url_for('sample_file', filename='7.png') }}" alt="Digit 7">
-      <img class="sample" src="{{ url_for('sample_file', filename='8.png') }}" alt="Digit 8">
-      <img class="sample" src="{{ url_for('sample_file', filename='9.png') }}" alt="Digit 9">
-    </div>
-  </div>
+  <h1>MNIST Digit Classifier</h1>
+  <p>Select an image file (28x28 recommended) and click Predict.</p>
+  <input type="file" id="fileInput">
+  <button id="predictButton">Predict</button>
+  <br>
+  <!-- Image preview element -->
+  <img id="preview" src="" alt="Image Preview" style="display:none;">
+  <h2 id="predictionResult"></h2>
+  <!-- Canvas for Chart.js -->
+  <canvas id="confidenceChart" style="display:none;"></canvas>
+
+  <!-- Load Chart.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
   <script>
-    let selectedFile = null;
+    let chartInstance = null;
+    
+    const fileInput = document.getElementById("fileInput");
+    const predictButton = document.getElementById("predictButton");
+    const preview = document.getElementById("preview");
+    const predictionResult = document.getElementById("predictionResult");
+    const chartCanvas = document.getElementById("confidenceChart");
 
-    function predictImage(file) {
-      const formData = new FormData();
-      formData.append("file", file);
-      fetch("/predict", { method: "POST", body: formData })
-        .then(response => response.json())
-        .then(data => {
-          if (data.error) {
-            resultDiv.innerHTML = `<p>Error: ${data.error}</p>`;
-          } else {
-            resultDiv.innerHTML = `<h2>Predicted Digit: ${data.predicted_digit}</h2>`;
-          }
-        })
-        .catch(err => { resultDiv.innerHTML = `<p>Error: ${err}</p>`; });
-    }
+    // Display preview when a file is selected.
+    fileInput.addEventListener("change", function(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          preview.src = e.target.result;
+          preview.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+      }
+    });
 
-    const imageUpload = document.getElementById("image-upload");
-    const predictButton = document.getElementById("predict-button");
-    const resultDiv = document.getElementById("result");
-
-    predictButton.addEventListener("click", () => {
-      let file;
-      if (imageUpload.files.length > 0) {
-        file = imageUpload.files[0];
-      } else if (selectedFile !== null) {
-        file = selectedFile;
-      } else {
-        resultDiv.innerHTML = "<p>Please select an image file</p>";
+    // When Predict button is clicked, send the file to the backend.
+    predictButton.addEventListener("click", function() {
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please select a file first!");
         return;
       }
-      predictImage(file);
-    });
-
-    document.querySelectorAll(".sample").forEach(img => {
-      img.addEventListener("click", () => {
-        // Clear file input so the selected sample takes precedence.
-        imageUpload.value = "";
-        fetch(img.src)
-          .then(response => response.blob())
-          .then(blob => {
-            selectedFile = new File([blob], "sample.png", { type: blob.type });
-            resultDiv.innerHTML = "<p>Sample selected. Click Predict to classify.</p>";
-          })
-          .catch(err => { resultDiv.innerHTML = `<p>Error: ${err}</p>`; });
+      
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      fetch("/predict", {
+        method: "POST",
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          predictionResult.innerHTML = "Error: " + data.error;
+          chartCanvas.style.display = "none";
+        } else {
+          predictionResult.innerHTML = "Predicted Digit: " + data.predicted_digit;
+          updateChart(data.confidence_scores);
+        }
+      })
+      .catch(error => {
+        predictionResult.innerHTML = "Error: " + error;
       });
     });
+
+    // Function to create or update the Chart.js bar chart.
+    function updateChart(confidenceScores) {
+      chartCanvas.style.display = "block";
+      const ctx = chartCanvas.getContext("2d");
+      const labels = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+      
+      if (chartInstance !== null) {
+        chartInstance.data.datasets[0].data = confidenceScores;
+        chartInstance.update();
+      } else {
+        chartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Confidence Scores',
+              data: confidenceScores,
+              backgroundColor: 'rgba(54, 162, 235, 0.6)',
+              borderColor: 'rgba(54, 162, 235, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 1
+              }
+            }
+          }
+        });
+      }
+    }
   </script>
 </body>
 </html>
