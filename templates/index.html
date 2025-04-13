@@ -1,95 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>MNIST Digit Classifier</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    margin: 0;
-    padding: 0;
-  }
-  .container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-  .samples-container {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 20px;
-    margin-top: 20px;
-  }
-  .sample {
-    width: 100px;
-    height: 100px;
-    object-fit: contain;
-    cursor: pointer;
-    border: 1px solid #ccc;
-  }
-  #result {
-    margin-top: 20px;
-    font-size: 1.5em;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>MNIST Digit Classifier</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+    }
+    .samples-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .sample {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      cursor: pointer;
+      border: 1px solid #ccc;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 1.5em;
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-  <h1>MNIST Digit Classifier</h1>
-  <p>Select an image from your computer and click Predict:</p>
-  <input type="file" id="image-upload" accept="image/*">
-  <button id="predict-button">Predict</button>
-  <div id="result"></div>
-  <h2>Sample Digits</h2>
-  <div class="samples-container">
-    <img class="sample" src="{{ url_for('sample_file', filename='0.png') }}" alt="Digit 0">
-    <img class="sample" src="{{ url_for('sample_file', filename='1.png') }}" alt="Digit 1">
-    <img class="sample" src="{{ url_for('sample_file', filename='2.png') }}" alt="Digit 2">
+  <div class="container">
+    <h1>MNIST Digit Classifier</h1>
+    <p>Select an image from your computer and click Predict:</p>
+    <input type="file" id="image-upload" accept="image/*">
+    <button id="predict-button">Predict</button>
+    <div id="result"></div>
+    <h2>Sample Digits</h2>
+    <div class="samples-container">
+      <img class="sample" src="{{ url_for('sample_file', filename='0.png') }}" alt="Digit 0">
+      <img class="sample" src="{{ url_for('sample_file', filename='1.png') }}" alt="Digit 1">
+      <img class="sample" src="{{ url_for('sample_file', filename='2.png') }}" alt="Digit 2">
+      <img class="sample" src="{{ url_for('sample_file', filename='3.png') }}" alt="Digit 3">
+      <img class="sample" src="{{ url_for('sample_file', filename='4.png') }}" alt="Digit 4">
+      <img class="sample" src="{{ url_for('sample_file', filename='5.png') }}" alt="Digit 5">
+      <img class="sample" src="{{ url_for('sample_file', filename='6.png') }}" alt="Digit 6">
+      <img class="sample" src="{{ url_for('sample_file', filename='7.png') }}" alt="Digit 7">
+      <img class="sample" src="{{ url_for('sample_file', filename='8.png') }}" alt="Digit 8">
+      <img class="sample" src="{{ url_for('sample_file', filename='9.png') }}" alt="Digit 9">
+    </div>
   </div>
-</div>
-<script>
-  function predictImage(file) {
-    let formData = new FormData();
-    formData.append("file", file);
-    fetch("/predict", { method: "POST", body: formData })
-      .then(response => response.json())
-      .then(data => {
-        if (data.error) {
-          resultDiv.innerHTML = `<p>Error: ${data.error}</p>`;
-        } else {
-          resultDiv.innerHTML = `<h2>Predicted Digit: ${data.predicted_digit}</h2>`;
-        }
-      })
-      .catch(err => {
-        resultDiv.innerHTML = `<p>Error: ${err}</p>`;
-      });
-  }
-  const imageUpload = document.getElementById("image-upload");
-  const predictButton = document.getElementById("predict-button");
-  const resultDiv = document.getElementById("result");
-  predictButton.addEventListener("click", () => {
-    if (!imageUpload.files.length) {
-      resultDiv.innerHTML = "<p>Please select an image file</p>";
-      return;
-    }
-    let file = imageUpload.files[0];
-    predictImage(file);
-  });
-  document.querySelectorAll(".sample").forEach(img => {
-    img.addEventListener("click", () => {
-      fetch(img.src)
-        .then(response => response.blob())
-        .then(blob => {
-          let file = new File([blob], "sample.png", { type: blob.type });
-          predictImage(file);
+  <script>
+    let selectedFile = null;
+    function predictImage(file) {
+      const formData = new FormData();
+      formData.append("file", file);
+      fetch("/predict", { method: "POST", body: formData })
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            resultDiv.innerHTML = `<p>Error: ${data.error}</p>`;
+          } else {
+            resultDiv.innerHTML = `<h2>Predicted Digit: ${data.predicted_digit}</h2>`;
+          }
         })
-        .catch(err => {
-          resultDiv.innerHTML = `<p>Error: ${err}</p>`;
-        });
+        .catch(err => { resultDiv.innerHTML = `<p>Error: ${err}</p>`; });
+    }
+    const imageUpload = document.getElementById("image-upload");
+    const predictButton = document.getElementById("predict-button");
+    const resultDiv = document.getElementById("result");
+    predictButton.addEventListener("click", () => {
+      let file;
+      if (imageUpload.files.length > 0) {
+        file = imageUpload.files[0];
+      } else if (selectedFile !== null) {
+        file = selectedFile;
+      } else {
+        resultDiv.innerHTML = "<p>Please select an image file</p>";
+        return;
+      }
+      predictImage(file);
     });
-  });
-</script>
+    document.querySelectorAll(".sample").forEach(img => {
+      img.addEventListener("click", () => {
+        fetch(img.src)
+          .then(response => response.blob())
+          .then(blob => {
+            selectedFile = new File([blob], "sample.png", { type: blob.type });
+            resultDiv.innerHTML = "<p>Sample selected. Click Predict to classify.</p>";
+          })
+          .catch(err => { resultDiv.innerHTML = `<p>Error: ${err}</p>`; });
+      });
+    });
+  </script>
 </body>
 </html>
