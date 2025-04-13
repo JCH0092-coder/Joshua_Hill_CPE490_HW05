@@ -5,7 +5,7 @@
   <title>MNIST Digit Classifier</title>
   <style>
     body { font-family: Arial, sans-serif; }
-    .sample { margin: 10px; }
+    .sample { margin: 10px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -14,37 +14,63 @@
   <input type="file" id="image-upload" accept="image/*">
   <button id="predict-button">Predict</button>
   <div id="result"></div>
+
   <h2>Sample Digits</h2>
   <div>
     <img class="sample" src="{{ url_for('sample_file', filename='0.png') }}" alt="Digit 0">
     <img class="sample" src="{{ url_for('sample_file', filename='1.png') }}" alt="Digit 1">
     <img class="sample" src="{{ url_for('sample_file', filename='2.png') }}" alt="Digit 2">
   </div>
+  
   <script>
-    const imageUpload = document.getElementById("image-upload");
-    const predictButton = document.getElementById("predict-button");
-    const resultDiv = document.getElementById("result");
-    predictButton.addEventListener("click", async () => {
-      if (!imageUpload.files[0]) {
-        resultDiv.innerHTML = "<p>Please select an image file</p>";
-        return;
-      }
+    function predictImage(blob) {
       let formData = new FormData();
-      formData.append("file", imageUpload.files[0]);
-      try {
-        const response = await fetch("/predict", {
-          method: "POST",
-          body: formData
-        });
-        const data = await response.json();
+      formData.append("file", blob, "sample.png");
+      fetch("/predict", { method: "POST", body: formData })
+      .then(response => response.json())
+      .then(data => {
         if (data.error) {
           resultDiv.innerHTML = `<p>Error: ${data.error}</p>`;
         } else {
           resultDiv.innerHTML = `<h2>Predicted Digit: ${data.predicted_digit}</h2>`;
         }
-      } catch(err) {
-        resultDiv.innerHTML = `<p>Error: ${err}</p>`;
+      })
+      .catch(err => { resultDiv.innerHTML = `<p>Error: ${err}</p>`; });
+    }
+    
+    const imageUpload = document.getElementById("image-upload");
+    const predictButton = document.getElementById("predict-button");
+    const resultDiv = document.getElementById("result");
+
+    predictButton.addEventListener("click", () => {
+      if (imageUpload.files.length === 0) {
+        resultDiv.innerHTML = "<p>Please select an image file</p>";
+        return;
       }
+      let file = imageUpload.files[0];
+      let formData = new FormData();
+      formData.append("file", file);
+      fetch("/predict", { method: "POST", body: formData })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          resultDiv.innerHTML = `<p>Error: ${data.error}</p>`;
+        } else {
+          resultDiv.innerHTML = `<h2>Predicted Digit: ${data.predicted_digit}</h2>`;
+        }
+      })
+      .catch(err => { resultDiv.innerHTML = `<p>Error: ${err}</p>`; });
+    });
+
+    document.querySelectorAll(".sample").forEach(img => {
+      img.addEventListener("click", () => {
+        fetch(img.src)
+        .then(response => response.blob())
+        .then(blob => {
+          predictImage(new File([blob], "sample.png", { type: blob.type }));
+        })
+        .catch(err => { resultDiv.innerHTML = `<p>Error: ${err}</p>`; });
+      });
     });
   </script>
 </body>
