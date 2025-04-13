@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify
 import onnxruntime as ort
 import numpy as np
 from PIL import Image
@@ -6,46 +6,59 @@ import io
 import os
 
 app = Flask(__name__)
+
+# Ensure the ONNX model file "mnist_cnn_model.onnx" is in the same directory.
 model_path = "mnist_cnn_model.onnx"
 if not os.path.exists(model_path):
-    raise FileNotFoundError("ONNX model not found.")
+    raise FileNotFoundError("ONNX model not found. Please ensure 'mnist_cnn_model.onnx' is present in the working directory.")
+    
 ort_session = ort.InferenceSession(model_path)
 input_name = ort_session.get_inputs()[0].name
 
-@app.route('/')
-def home():
-    return render_template('index.html')
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-@app.route('/samples/<filename>')
-def sample_file(filename):
-    return send_from_directory(os.getcwd(), filename)
-
-@app.route('/predict', methods=['POST'])
-def predict_endpoint():
+@app.route("/predict", methods=["POST"])
+def predict():
     if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+        return jsonify({"error": "No file provided."})
+    
     file = request.files["file"]
     if file.filename == "":
-        return jsonify({"error": "No file selected"}), 400
+        return jsonify({"error": "No file selected."})
+    
     try:
         image_bytes = file.read()
         image = Image.open(io.BytesIO(image_bytes))
-        if image.size != (28, 28):
-            image = image.resize((28, 28))
+        
+        # Convert to grayscale if not already.
         if image.mode != "L":
             image = image.convert("L")
+        
+        # Resize the image to 28x28.
+        image = image.resize((28, 28))
+        
+        # Normalize pixel values to [0, 1].
         img_array = np.array(image).astype("float32") / 255.0
-        img_array = img_array.reshape(1, 28, 28, 1)
-        outputs = ort_session.run(None, {input_name: img_array})
-        probabilities = outputs[0][0].tolist()
-        predicted_digit = int(np.argmax(probabilities))
+        
+        # Reshape the image to match the expected input shape: (1, 28, 28, 1)
+        input_data = img_array.reshape(1, 28, 28, 1)
+        
+        # Run inference using the ONNX model.
+        outputs = ort_session.run(None, {input_name: input_data})
+        
+        # Assuming outputs[0] holds the confidence scores for each digit.
+        predictions = outputs[0][0]  
+        predicted_digit = int(np.argmax(predictions))
+        confidence_scores = predictions.tolist()
+        
         return jsonify({
             "predicted_digit": predicted_digit,
-            "confidence_scores": probabilities
+            "confidence_scores": confidence_scores
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e)})
 
-if __name__ == '__main__':
-    print("Starting Flask web server on http://127.0.0.1:5000")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+if __name__ == "__main__":
+    app.run(debug=True)
