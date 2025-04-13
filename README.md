@@ -19,7 +19,7 @@ To test the application, either use the file input to upload a digit image and c
 For the colab notebook where i trained the model use the following link: 
 (https://colab.research.google.com/drive/1hZdsnSp-f5WnEp2Pekja4_f73E2x7hyR?usp=sharing)
 
-To update your local repository with the latest changes from GitHub, open Git Bash in the project folder and run:  
+To update your local repository with the latest update from GitHub, open Git Bash in the project folder and run:  
 `git pull origin main`
 
 This project uses several Python modules and packages, including Flask (imported as `from flask import Flask, render_template, request, jsonify, send_from_directory`), ONNX Runtime (imported as `import onnxruntime as ort`), NumPy (imported as `import numpy as np`), Pillow (imported as `from PIL import Image`), io (imported as `import io`), and os (imported as `import os`).
