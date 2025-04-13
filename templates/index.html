@@ -9,9 +9,12 @@
       text-align: center;
       margin: 20px;
     }
+    /* The preview image will be displayed at exactly 28x28 pixels and centered */
     #preview {
-      margin-top: 10px;
-      max-width: 200px;
+      margin: 10px auto;
+      display: block;
+      width: 28px;
+      height: 28px;
       border: 1px solid #ccc;
     }
     #confidenceChart {
@@ -35,13 +38,13 @@
 </head>
 <body>
   <h1>MNIST Digit Classifier</h1>
-  <p>Select an image file (28x28 recommended) and click Predict.</p>
+  <p>Select an image file and click Predict. The image will be resized to 28x28, converted to grayscale, and centered.</p>
   
   <input type="file" id="fileInput">
   <button id="predictButton">Predict</button>
   <br>
   
-  <!-- Image preview element -->
+  <!-- Processed Image Preview -->
   <img id="preview" src="" alt="Image Preview" style="display:none;">
   
   <h2 id="predictionResult"></h2>
@@ -76,29 +79,46 @@
     const predictionResult = document.getElementById("predictionResult");
     const chartCanvas = document.getElementById("confidenceChart");
 
-    // When a file is uploaded via the file input.
+    // When a file is uploaded, process it: resize to 28x28, convert to grayscale, and display it.
     fileInput.addEventListener("change", function(event) {
       selectedFile = null; // Clear any previously selected sample.
       const file = event.target.files[0];
       if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-          preview.src = e.target.result;
-          preview.style.display = "block";
+          const tempImg = new Image();
+          tempImg.onload = function() {
+            // Create an offscreen canvas to process the image.
+            const canvas = document.createElement("canvas");
+            canvas.width = 28;
+            canvas.height = 28;
+            const ctx = canvas.getContext("2d");
+            // Apply grayscale filter.
+            ctx.filter = "grayscale(100%)";
+            ctx.drawImage(tempImg, 0, 0, 28, 28);
+            // Get the processed image as a DataURL.
+            const processedDataUrl = canvas.toDataURL("image/png");
+            preview.src = processedDataUrl;
+            preview.style.display = "block";
+            // Convert canvas data to a File object for backend submission.
+            canvas.toBlob(function(blob) {
+              selectedFile = new File([blob], file.name, { type: "image/png" });
+            }, "image/png");
+          };
+          tempImg.src = e.target.result;
         };
         reader.readAsDataURL(file);
       }
     });
 
-    // When clicking on a sample image.
+    // When clicking on a sample image, clear file input and use the sample image.
     document.querySelectorAll("#sampleContainer img").forEach(img => {
       img.addEventListener("click", function() {
-        // Clear the file input.
         fileInput.value = "";
-        // Show the sample image in the preview.
+        // Directly set the sample image as the preview.
         preview.src = img.src;
         preview.style.display = "block";
-        // Fetch the sample image, convert to a File object.
+        // Fetch the sample image and convert it into a File object.
         fetch(img.src)
           .then(response => response.blob())
           .then(blob => {
@@ -107,11 +127,11 @@
       });
     });
 
-    // When the Predict button is clicked.
+    // When the Predict button is clicked, send the processed file to the backend.
     predictButton.addEventListener("click", function() {
       let file = null;
       if (fileInput.files.length > 0) {
-        file = fileInput.files[0];
+        file = selectedFile ? selectedFile : fileInput.files[0];
       } else if (selectedFile !== null) {
         file = selectedFile;
       } else {
