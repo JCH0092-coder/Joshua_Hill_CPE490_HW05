@@ -58,6 +58,7 @@
   </div>
   <script>
     let selectedFile = null;
+
     function predictImage(file) {
       const formData = new FormData();
       formData.append("file", file);
@@ -72,9 +73,11 @@
         })
         .catch(err => { resultDiv.innerHTML = `<p>Error: ${err}</p>`; });
     }
+
     const imageUpload = document.getElementById("image-upload");
     const predictButton = document.getElementById("predict-button");
     const resultDiv = document.getElementById("result");
+
     predictButton.addEventListener("click", () => {
       let file;
       if (imageUpload.files.length > 0) {
@@ -87,8 +90,11 @@
       }
       predictImage(file);
     });
+
     document.querySelectorAll(".sample").forEach(img => {
       img.addEventListener("click", () => {
+        // Clear file input so the selected sample takes precedence.
+        imageUpload.value = "";
         fetch(img.src)
           .then(response => response.blob())
           .then(blob => {
