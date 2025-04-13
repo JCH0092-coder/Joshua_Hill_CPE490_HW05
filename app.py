@@ -32,7 +32,7 @@ def predict():
         image_bytes = file.read()
         image = Image.open(io.BytesIO(image_bytes))
         
-        # Convert to grayscale if necessary.
+        # Ensure image is grayscale.
         if image.mode != "L":
             image = image.convert("L")
         
@@ -42,7 +42,7 @@ def predict():
         # Normalize pixel values to [0, 1].
         img_array = np.array(image).astype("float32") / 255.0
         
-        # Reshape to (1, 28, 28, 1).
+        # Reshape to (1, 28, 28, 1) as required.
         input_data = img_array.reshape(1, 28, 28, 1)
         
         # Run inference.
@@ -58,7 +58,7 @@ def predict():
     except Exception as e:
         return jsonify({"error": str(e)})
 
-# Route to serve sample images, which are in the same folder as app.py.
+# Route to serve sample images from the project root.
 @app.route("/samples/<filename>")
 def serve_sample_image(filename):
     return send_from_directory(os.getcwd(), filename)
